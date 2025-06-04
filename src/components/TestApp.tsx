@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import VideoCall from './VideoCall';
-
+import { useParams } from 'react-router-dom';
+import "../styles/TestApp.css";
 const TestApp = () => {
   const [submitted, setSubmitted] = useState(false);
   const [userName, setUserName] = useState('');
-  const [role, setRole] = useState<'doctor' | 'patient'>('patient');
-  const [meetingId, setMeetingId] = useState('test-meeting-123');
+  const role = "patient";
+  const {appointmentId} = useParams();
+  const [meetingId, setMeetingId] = useState(appointmentId !== undefined ? appointmentId : '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,63 +19,51 @@ const TestApp = () => {
   };
 
   return (
-    <>
+    <div className="page-wrapper">
+      <div className="background-shapes">
+        <div className="shape shape1"></div>
+        <div className="shape shape2"></div>
+        <div className="shape shape3"></div>
+      </div>
       {!submitted ? (
-        <form
-          onSubmit={handleSubmit}
-          style={{
-            padding: '2rem',
-            display: 'flex',
-            flexDirection: 'column',
-            maxWidth: '400px',
-            margin: 'auto',
-            gap: '1rem',
-          }}
-        >
-          <h2 style={{ textAlign: 'center' }}>Join a Video Call</h2>
+        <div className='form-container'>
+          <form className='form' onSubmit={handleSubmit}>
+            <h2 className='title'>Join a Video Call</h2>
 
-          <label>
-            Your Name:
-            <input
-              type="text"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
-          </label>
+            <label className='fieldLabel'>
+              Your Name:
+              <input
+                className='input'
+                type="text"
+                value={userName}
+                placeholder='Enter your name'
+                onChange={(e) => setUserName(e.target.value)}
+                required
+              />
+            </label>
 
-          <label>
-            Role:
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'doctor' | 'patient')}
-              style={{ width: '100%' }}
-            >
-              <option value="doctor">Doctor</option>
-              <option value="patient">Patient</option>
-            </select>
-          </label>
+            <label className='fieldLabel'>
+              {appointmentId ? "Meeting ID (read-only):" : "Meeting ID:"}
+              <input
+                type="text"
+                value={meetingId}
+                className='input'
+                placeholder='Enter Meeting ID'
+                onChange={(e) => setMeetingId(e.target.value)}
+                readOnly={appointmentId!==undefined}
+                required
+              />
+            </label>
 
-          <label>
-            Meeting ID:
-            <input
-              type="text"
-              value={meetingId}
-              onChange={(e) => setMeetingId(e.target.value)}
-              required
-              style={{ width: '100%' }}
-            />
-          </label>
-
-          <button type="submit" style={{ padding: '0.5rem', fontSize: '1rem' }}>
-            Join Call
-          </button>
-        </form>
+            <button type="submit" className="button">
+              Join Call
+            </button>
+          </form>
+        </div>
       ) : (
         <VideoCall userName={userName} role={role} meetingId={meetingId} />
       )}
-    </>
+    </div>
   );
 };
 
