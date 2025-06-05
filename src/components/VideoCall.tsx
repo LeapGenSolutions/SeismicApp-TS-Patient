@@ -25,7 +25,7 @@ const getToken = async (userId: string): Promise<string | null> => {
 };
 
 const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
-  const apiKey = 'jzjtebythm5q';
+  const apiKey = '72499ykcfb3z';
   const userId = userName;
   const callId = meetingId;
 
