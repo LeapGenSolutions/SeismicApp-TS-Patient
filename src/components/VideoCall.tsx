@@ -91,7 +91,17 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
       const videoCall = videoClient.call('default', callId);
 
       if (role === 'doctor') {
-        await videoCall.join({ create: true });
+        await videoCall.join({
+          create: true,
+          data: {
+            settings_override: {
+              recording: {
+                quality: "360p",
+                mode: "available"
+              }
+            }
+          }
+        });
 
         videoCall.on('custom', (event) => {
           if (event.custom?.type === 'join-request') {
