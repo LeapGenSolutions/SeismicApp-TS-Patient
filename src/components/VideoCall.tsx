@@ -26,9 +26,9 @@ const getToken = async (userId: string): Promise<string | null> => {
 
 const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
   const apiKey = '72499ykcfb3z';
-  const userId = userName;
+  const userId = userName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   const callId = meetingId;
-
+  
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<any>(null);
   const [showCall, setShowCall] = useState(false);
