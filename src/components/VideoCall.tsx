@@ -3,32 +3,35 @@ import {
   StreamVideo,
   StreamVideoClient,
   type User,
-} from '@stream-io/video-react-sdk';
-import axios from 'axios';
-import { useEffect, useState } from 'react';
-import MyUILayout from './MyUILayout';
+} from "@stream-io/video-react-sdk";
+import axios from "axios";
+import { useEffect, useState } from "react";
+import MyUILayout from "./MyUILayout";
 
 type VideoCallProps = {
   userName: string;
   meetingId: string;
-  role: 'doctor' | 'patient';
+  role: "doctor" | "patient";
 };
 
 const getToken = async (userId: string): Promise<string | null> => {
   try {
-    const response = await axios.post('https://seismic-backend-04272025-bjbxatgnadguabg9.centralus-01.azurewebsites.net/get-token', { userId });
+    const response = await axios.post(
+      "https://seismic-backend-04272025-bjbxatgnadguabg9.centralus-01.azurewebsites.net/get-token",
+      { userId }
+    );
     return response.data.token;
   } catch (error) {
-    console.error('Error fetching token:', error);
+    console.error("Error fetching token:", error);
     return null;
   }
 };
 
 const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
-  const apiKey = '72499ykcfb3z';
+  const apiKey = "72499ykcfb3z";
   const userId = userName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   const callId = meetingId;
-  
+
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<any>(null);
   const [showCall, setShowCall] = useState(false);
@@ -42,11 +45,11 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
 
   // Show browser notification
   const showBrowserNotification = (name: string) => {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted') {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
       const notif = new Notification(`${name} wants to join the call`, {
-        body: 'Click here to approve.',
-        icon: 'https://static.wikia.nocookie.net/starwars/images/4/4c/Satele_Shan.png',
+        body: "Click here to approve.",
+        icon: "https://static.wikia.nocookie.net/starwars/images/4/4c/Satele_Shan.png",
       });
       notif.onclick = () => {
         window.focus();
@@ -58,7 +61,7 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
   // Approve / Reject handlers
   const handleApprove = () => {
     if (!call || !requestingUser) return;
-    call.sendCustomEvent({ type: 'join-accepted', user: requestingUser });
+    call.sendCustomEvent({ type: "join-accepted", user: requestingUser });
     setPopupVisible(false);
     setRequestingUser(null);
     setCountdown(20);
@@ -66,7 +69,7 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
 
   const handleReject = () => {
     if (!call || !requestingUser) return;
-    call.sendCustomEvent({ type: 'join-rejected', user: requestingUser });
+    call.sendCustomEvent({ type: "join-rejected", user: requestingUser });
     setPopupVisible(false);
     setRequestingUser(null);
     setCountdown(20);
@@ -89,24 +92,24 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
         token,
       });
 
-      const videoCall = videoClient.call('default', callId);
+      const videoCall = videoClient.call("default", callId);
 
-      if (role === 'doctor') {
+      if (role === "doctor") {
         await videoCall.join({
           create: true,
           data: {
             settings_override: {
               recording: {
                 quality: "360p",
-                mode: "available"
-              }
-            }
-          }
+                mode: "available",
+              },
+            },
+          },
         });
 
-        videoCall.on('custom', (event) => {
-          if (event.custom?.type === 'join-request') {
-            const name = event.user?.name || 'A patient';
+        videoCall.on("custom", (event) => {
+          if (event.custom?.type === "join-request") {
+            const name = event.user?.name || "A patient";
             setRequestingUser(event.user || null);
             setPopupVisible(true);
             showBrowserNotification(name);
@@ -120,71 +123,91 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
           setLoading(false);
         }
       } else {
-          try{
-            await videoCall.get();
-            const count = videoCall.state.participantCount;
-            if (count === 0) {
-              throw new Error("Doctor not in call yet");
+        const proceedToJoinFlow = (count: number) => {
+            console.log("Proceeding to join flow with participant count:", count);
+            
+            if (count >= 2) {
+              setShowCall(false);
+              setLoading(false);
+              
+              setTimeout(() => {
+                window.location.href = `/${callId}`;
+              }, 5000);
+              return;
             }
-          }
-          catch(e) {
-            console.error("Call does not exist yet, waiting for doctor to create it");
-            setWaitingApproval(false);
+
+            videoCall.sendCustomEvent({
+              type: "join-request",
+              user: { id: userId, name: userName },
+            });
+            setWaitingApproval(true);
+
+            videoCall.on("custom", async (event) => {
+              if (event.custom.type === "join-accepted") {
+                await videoCall.join();
+                if (isMounted) {
+                  setClient(videoClient);
+                  setCall(videoCall);
+                  setShowCall(true);
+                  setWaitingApproval(false);
+                  setLoading(false);
+                }
+              }
+              if (event.custom.type === "join-rejected") {
+                setWaitingApproval(false);
+                setRejected(true);
+                setLoading(false);
+              }
+            });
+          };
+        try {
+          await videoCall.get();
+          let count = videoCall.state.participantCount;
+          console.log("Participant count:", count);
+
+          if (count === 0) {
             setDoctorNotAvailable(true);
             setShowCall(false);
             setLoading(false);
             const intervalId = setInterval(async () => {
-              console.log("Checking if call exists...");
-              try{
-                await videoCall.get();
-                const count = videoCall.state.participantCount;
-                if (count > 0) {
-                  clearInterval(intervalId);
-                  setDoctorNotAvailable(false);
-
-                  if (count >= 2) {
-                    // Auto leave after showing message
-                    setShowCall(false);
-                    setLoading(false);
-                    setTimeout(() => {
-                      window.location.href = '/'; // or replace with navigation to home/dashboard
-                    }, 5000);
-                    return;
-                  }
-                  
-                  // Send join request and wait for approval 
-                  videoCall.sendCustomEvent({ type: 'join-request', user: { id: userId, name: userName } });
-                  setWaitingApproval(true);
-                  
-
-                  videoCall.on('custom', async (event) => {
-                    if (event.custom.type === 'join-accepted') {
-                      await videoCall.join();
-                      if (isMounted) {
-                        setClient(videoClient);
-                        setCall(videoCall);
-                        setShowCall(true);
-                        setWaitingApproval(false);
-                        setLoading(false);
-                      }
-                    }
-                    if (event.custom.type === 'join-rejected') {
-                      setWaitingApproval(false);
-                      setRejected(true);
-                      setLoading(false);
-                    }
-                  });
-                }else{
-                  throw new Error("Doctor not in call yet");
-                }
-              }catch (e){
-                console.error("Call does not exist yet");
+              await videoCall.get();
+              count = videoCall.state.participantCount;
+              console.log("Checking if doctor is available... ", count);
+              if (count > 0) {
+                clearInterval(intervalId);
+                setDoctorNotAvailable(false);
+                proceedToJoinFlow(count); // 👈 Now run rest of logic when doctor is available
               }
             }, 5000);
+            return;
           }
+
+          proceedToJoinFlow(count); // 👈 Run it immediately if doctor is already available
+        } catch (e) {
+          console.error(
+            "Call does not exist yet, waiting for doctor to create it"
+          );
+          setWaitingApproval(false);
+          setDoctorNotAvailable(true);
+          setShowCall(false);
+          setLoading(false);
+          const intervalId = setInterval(async () => {
+            console.log("Checking if call exists...");
+            try {
+              await videoCall.get();
+              var count = videoCall.state.participantCount;
+              if (count > 0) {
+                clearInterval(intervalId);
+                setDoctorNotAvailable(false);
+                proceedToJoinFlow(count); // 👈 call logic after doctor joins
+              }
+            } catch (e) {
+              console.error("Call does not exist yet");
+            }
+          }, 5000);
+        }
       }
     };
-
 
     setupCall();
 
@@ -240,58 +263,87 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
       {loading && !waitingApproval && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             top: 0,
             left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(255,255,255,0.85)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(255,255,255,0.85)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
             zIndex: 9999,
           }}
         >
           <div
             style={{
-              border: '8px solid #f3f3f3',
-              borderTop: '8px solid #3498db',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              animation: 'spin 1s linear infinite',
-              marginBottom: '24px',
+              border: "8px solid #f3f3f3",
+              borderTop: "8px solid #3498db",
+              borderRadius: "50%",
+              width: "60px",
+              height: "60px",
+              animation: "spin 1s linear infinite",
+              marginBottom: "24px",
             }}
           />
-          <div style={{ fontSize: '1.2rem', color: '#222' }}>Loading, please wait...</div>
+          <div style={{ fontSize: "1.2rem", color: "#222" }}>
+            Loading, please wait...
+          </div>
         </div>
       )}
 
       {!loading && rejected && (
-        <div style={{ padding: '2rem' }}>❌ Your request was rejected by the doctor.</div>
+        <div style={{ padding: "2rem" }}>
+          ❌ Your request was rejected by the doctor.
+        </div>
       )}
 
       {waitingApproval && (
-        <div style={{ padding: '2rem' }}>⌛ Waiting for doctor’s approval...</div>
+        <div style={{ padding: "2rem" }}>
+          ⌛ Waiting for doctor’s approval...
+        </div>
       )}
 
       {doctorNotAvailable && (
-        <div style={{ padding: '2rem' }}>
-          ⚠️ The doctor is not available. You will be joining the call once they are ready.
+        <div style={{ padding: "2rem" }}>
+          ⚠️ The doctor is not available. You will be joining the call once they
+          are ready.
+        </div>
+      )}
+
+      {!loading && !showCall && !waitingApproval && !rejected && !doctorNotAvailable && (
+        <div style={{ padding: "2rem" }}>
+          ⚠️ The call is currently full. You will be redirected in 5 seconds...
         </div>
       )}
 
       {popupVisible && requestingUser && (
-        <div className="join-request-popup" role="alert" aria-live="assertive" aria-atomic="true" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          className="join-request-popup"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        >
           <span>{requestingUser.name} wants to join the call</span>
-          <span style={{ marginLeft: 'auto', fontWeight: 'bold', color: '#555' }}>
+          <span
+            style={{ marginLeft: "auto", fontWeight: "bold", color: "#555" }}
+          >
             Auto reject in {countdown}s
           </span>
-          <button className="approve" onClick={handleApprove} aria-label="Approve join request">
+          <button
+            className="approve"
+            onClick={handleApprove}
+            aria-label="Approve join request"
+          >
             Approve
           </button>
-          <button className="reject" onClick={handleReject} aria-label="Reject join request">
+          <button
+            className="reject"
+            onClick={handleReject}
+            aria-label="Reject join request"
+          >
             Reject
           </button>
         </div>
