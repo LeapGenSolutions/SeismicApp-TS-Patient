@@ -1,11 +1,11 @@
-import { useState } from "react";
-import VideoCall from "./VideoCall";
-import { useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "../styles/TestApp.css";
 
 const TestApp = () => {
   const [submitted, setSubmitted] = useState(false);
   const [userName, setUserName] = useState("");
+  const nav = useNavigate();
   const role = "patient";
   const { appointmentId } = useParams();
   const [meetingId, setMeetingId] = useState(
@@ -20,6 +20,13 @@ const TestApp = () => {
       alert("Please enter your name");
     }
   };
+
+  useEffect(() => {
+    if (submitted) {
+      nav(`/video-call/${meetingId}/${userName}/${role}`, {
+        replace: true,});
+    }
+  }, [submitted, meetingId, nav]);
 
   return (
     <div className="page-wrapper">
@@ -65,7 +72,7 @@ const TestApp = () => {
           </form>
         </div>
       ) : (
-        <VideoCall userName={userName} role={role} meetingId={meetingId} />
+        null
       )}
     </div>
   );

@@ -7,12 +7,7 @@ import {
 import axios from "axios";
 import { useEffect, useState } from "react";
 import MyUILayout from "./MyUILayout";
-
-type VideoCallProps = {
-  userName: string;
-  meetingId: string;
-  role: "doctor" | "patient";
-};
+import { useParams } from "react-router-dom";
 
 const getToken = async (userId: string): Promise<string | null> => {
   try {
@@ -27,11 +22,11 @@ const getToken = async (userId: string): Promise<string | null> => {
   }
 };
 
-const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
+const VideoCall = () => {
   const apiKey = "72499ykcfb3z";
-  const userId = userName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-  const callId = meetingId;
-
+  const { userName, appointmentId, role } = useParams<{ userName?: string; appointmentId?: string; role?: "doctor" | "patient" }>();
+  const callId = appointmentId ?? "default-call-id"; // Fallback to a default call ID if not provided
+  const userId = (userName ?? "").replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<any>(null);
   const [showCall, setShowCall] = useState(false);
@@ -40,7 +35,6 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
   const [waitingApproval, setWaitingApproval] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
   const [requestingUser, setRequestingUser] = useState<User | null>(null);
-  const [countdown, setCountdown] = useState(20);
   const [doctorNotAvailable, setDoctorNotAvailable] = useState(false);
 
   // Show browser notification
@@ -64,7 +58,6 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
     call.sendCustomEvent({ type: "join-accepted", user: requestingUser });
     setPopupVisible(false);
     setRequestingUser(null);
-    setCountdown(20);
   };
 
   const handleReject = () => {
@@ -72,7 +65,6 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
     call.sendCustomEvent({ type: "join-rejected", user: requestingUser });
     setPopupVisible(false);
     setRequestingUser(null);
-    setCountdown(20);
   };
 
   useEffect(() => {
@@ -327,11 +319,6 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
           style={{ display: "flex", alignItems: "center", gap: "8px" }}
         >
           <span>{requestingUser.name} wants to join the call</span>
-          <span
-            style={{ marginLeft: "auto", fontWeight: "bold", color: "#555" }}
-          >
-            Auto reject in {countdown}s
-          </span>
           <button
             className="approve"
             onClick={handleApprove}
@@ -352,7 +339,7 @@ const VideoCall = ({ userName, meetingId, role }: VideoCallProps) => {
       {!loading && showCall && client && call && (
         <StreamVideo client={client}>
           <StreamCall call={call}>
-            <MyUILayout />
+            <MyUILayout callId={callId}/>
           </StreamCall>
         </StreamVideo>
       )}
